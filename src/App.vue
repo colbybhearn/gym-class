@@ -1,7 +1,7 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import ExerciseTracker from './comps/ExerciseTracker.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <ExerciseTracker />
 </template>
