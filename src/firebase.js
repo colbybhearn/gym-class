@@ -11,13 +11,13 @@ import {
 } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyC0vyoNmLM2FKSGv4utSL6dGR8cqRY-n38',
-  authDomain: 'gym-class-b7baa.firebaseapp.com',
-  projectId: 'gym-class-b7baa',
-  storageBucket: 'gym-class-b7baa.firebasestorage.app',
-  messagingSenderId: '694888817417',
-  appId: '1:694888817417:web:6eb4cac9fe68073ab529d8',
-  measurementId: 'G-7DKS8RPXEE',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 }
 
 const app = initializeApp(firebaseConfig)
