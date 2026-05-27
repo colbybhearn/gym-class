@@ -62,9 +62,8 @@ export default {
     async loadDay() {
       const data = await getPeopleForDay(this.currentDateId)
       for (const person of this.people) {
-        if (data[person]) {
-          this.checks[person] = { ...this.checks[person], ...data[person] }
-        }
+        const defaults = Object.fromEntries(exercises.map(e => [e.id, e.type === 'check' ? false : '']))
+        this.checks[person] = { ...defaults, ...(data[person] ?? {}) }
       }
     },
 
