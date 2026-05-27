@@ -18,7 +18,7 @@ export default {
     const people = ['Lara', 'Stephen', 'Chelsey', 'Colby']
     return {
       date: new Date(),
-            
+      currentPerson: localStorage.getItem('currentPerson') ?? people[0],
       exercises,
       people,
       checks: Object.fromEntries(
@@ -35,9 +35,16 @@ export default {
     },
     currentDateId(){
       return dateToId(this.date)
-    }
+    },
+    visiblePeople() {
+      return this.currentPerson === 'ALL' ? this.people : [this.currentPerson]
+    },
   },
-  methods: {    
+  methods: {
+    selectPerson(name) {
+      this.currentPerson = name
+      localStorage.setItem('currentPerson', name)
+    },
     addPerson() {
       const name = prompt('Enter name:')
       if (!name || !name.trim()) return
@@ -91,21 +98,25 @@ export default {
   <div class="tracker">
     <div class="date-nav">
       <button class="nav-btn" @click="datePrev">&#8592; Prev</button>
-      <span class="date-label">{{ currentDateDisplay }}</span>
+      <select id="person-picker" :value="currentPerson" @change="selectPerson($event.target.value)">
+        <option value="ALL">All</option>
+        <option v-for="person in people" :key="person" :value="person">{{ person }}</option>
+      </select>
       <button class="nav-btn" @click="dateNext">Next &#8594;</button>
     </div>
+    <div class="date-row">{{ currentDateDisplay }}</div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th class="exercise-col date-cell">{{ currentDateDisplay }}</th>
-            <th v-for="person in people" :key="person">{{ person }}</th>
+            <th class="exercise-col date-cell">Activity</th>
+            <th v-for="person in visiblePeople" :key="person">{{ person }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="exercise in exercises" :key="exercise.label">
             <td class="exercise-label">{{ exercise.label }}</td>
-            <td v-for="person in people" :key="person" class="check-cell">
+            <td v-for="person in visiblePeople" :key="person" class="check-cell">
               <input
                 v-if="exercise.type === 'check'"
                 type="checkbox"
@@ -231,14 +242,15 @@ tr:hover td {
 .date-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   width: 100%;
 }
 
-.date-label {
-  flex: 1;
+
+.date-row {
+  width: 100%;
   text-align: center;
-  font-size: 16px;
+  font-size: 24px;
   font-weight: 600;
   color: var(--text-h);
 }
@@ -258,5 +270,19 @@ tr:hover td {
 
 .nav-btn:hover {
   box-shadow: var(--shadow);
+}
+
+.date-nav select {
+  flex: 1;
+  margin: 0 12px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--sans);
 }
 </style>
