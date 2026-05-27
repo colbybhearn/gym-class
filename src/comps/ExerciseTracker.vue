@@ -180,7 +180,8 @@ th {
 }
 
 .exercise-col {
-  min-width: 220px;
+  width: 1%;
+  white-space: nowrap;
 }
 
 .date-cell {
