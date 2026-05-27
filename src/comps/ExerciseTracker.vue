@@ -1,53 +1,105 @@
 <script>
+import { updatePerson, setPerson, getPeopleForDay } from '../firebase';
+import { dateToDisplay, dateToId } from '../utils';
+
+
 const exercises = [
-  { label: 'Quiet time daily',       type: 'check' },
-  { label: 'Stretch daily',          type: 'check' },
-  { label: '5000 steps daily',       type: 'number', placeholder: 'steps' },
-  { label: '3L of water daily',      type: 'text',   placeholder: 'e.g. 2.5L' },
-  { label: '30 min workout, 4x/week',type: 'text',   placeholder: 'workout type' },
-  { label: '15 min walk, 3x/week',   type: 'check' },
-  { label: 'Eat whole meals',        type: 'longtext',   placeholder: 'what you ate' },
+  { id:'dailyQuietTime',  label: 'Quiet time daily',       type: 'check' },
+  { id:'dailyStretch',    label: 'Stretch daily',          type: 'check' },
+  { id:'dailySteps',      label: '5000 steps daily',       type: 'number',  placeholder: 'steps' },
+  { id:'dailyHydration',  label: '3L of water daily',      type: 'text',    placeholder: 'e.g. 2.5L' },
+  { id:'dailyWorkout',    label: '30 min workout, 4x/week',type: 'text',    placeholder: 'workout type' },
+  { id:'dailyWalking',    label: '15 min walk, 3x/week',   type: 'check' },
+  { id:'dailyMeals',      label: 'Eat whole meals',        type: 'longtext',placeholder: 'what you ate' },
 ]
 
 export default {
   data() {
     const people = ['Lara', 'Stephen', 'Chelsey', 'Colby']
     return {
+      date: new Date(),
+            
       exercises,
       people,
       checks: Object.fromEntries(
         people.map(p => [
           p,
-          Object.fromEntries(exercises.map(e => [e.label, e.type === 'check' ? false : ''])),
+          Object.fromEntries(exercises.map(e => [e.id, e.type === 'check' ? false : ''])),
         ])
       ),
     }
   },
   computed: {
-    today() {
-      return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    currentDateDisplay() {
+      return dateToDisplay(this.date)
     },
+    currentDateId(){
+      return dateToId(this.date)
+    }
   },
-  methods: {
+  methods: {    
     addPerson() {
       const name = prompt('Enter name:')
       if (!name || !name.trim()) return
       const trimmed = name.trim()
       if (this.people.includes(trimmed)) return
       this.people.push(trimmed)
-      this.checks[trimmed] = Object.fromEntries(exercises.map(e => [e.label, e.type === 'check' ? false : '']))
+      this.checks[trimmed] = Object.fromEntries(exercises.map(e => [e.id, e.type === 'check' ? false : '']))
     },
+    dateNext(){
+      const d = new Date(this.date)
+      d.setDate(d.getDate() + 1)
+      this.date = d
+      this.loadDay()
+    },
+    datePrev(){
+      const d = new Date(this.date)
+      d.setDate(d.getDate() - 1)
+      this.date = d
+      this.loadDay()
+    },
+
+    async loadDay() {
+      const data = await getPeopleForDay(this.currentDateId)
+      for (const person of this.people) {
+        if (data[person]) {
+          this.checks[person] = { ...this.checks[person], ...data[person] }
+        }
+      }
+    },
+
+    async updateActivity(person, exercise) {
+      const data = { [exercise.id]: this.checks[person][exercise.id] }
+      try {
+        await updatePerson(this.currentDateId, person, data)
+      } catch (e) {
+        if (e.code === 'not-found') {
+          console.log(this.checks[person])
+          await setPerson(this.currentDateId, person, this.checks[person])
+        } else {
+          console.error(e)
+        }
+      }
+    }
   },
+  created() {
+    this.loadDay()
+  }
 }
 </script>
 
 <template>
   <div class="tracker">
+    <div class="date-nav">
+      <button class="nav-btn" @click="datePrev">&#8592; Prev</button>
+      <span class="date-label">{{ currentDateDisplay }}</span>
+      <button class="nav-btn" @click="dateNext">Next &#8594;</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th class="exercise-col date-cell">{{ today }}</th>
+            <th class="exercise-col date-cell">{{ currentDateDisplay }}</th>
             <th v-for="person in people" :key="person">{{ person }}</th>
           </tr>
         </thead>
@@ -58,19 +110,22 @@ export default {
               <input
                 v-if="exercise.type === 'check'"
                 type="checkbox"
-                v-model="checks[person][exercise.label]"
+                v-model="checks[person][exercise.id]"
+                @change="updateActivity(person, exercise)"
               />
               <textarea
-                v-else-if="exercise.type === 'longtext'"                
-                v-model="checks[person][exercise.label]"
+                v-else-if="exercise.type === 'longtext'"
+                v-model="checks[person][exercise.id]"
                 style="min-height: 100px;"
+                @change="updateActivity(person, exercise)"
               ></textarea>
               <input
                 v-else
                 :type="exercise.type"
-                v-model="checks[person][exercise.label]"
+                v-model="checks[person][exercise.id]"
                 :placeholder="exercise.placeholder"
                 class="text-input"
+                @change="updateActivity(person, exercise)"
               />
             </td>
           </tr>
@@ -171,6 +226,38 @@ tr:hover td {
 }
 
 .add-btn:hover {
+  box-shadow: var(--shadow);
+}
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.date-label {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.nav-btn {
+  flex: 0 0 auto;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.nav-btn:hover {
   box-shadow: var(--shadow);
 }
 </style>
