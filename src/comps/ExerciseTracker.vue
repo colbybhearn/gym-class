@@ -1,10 +1,4 @@
-<script setup>
-import { ref, computed } from 'vue'
-
-const today = computed(() =>
-  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-)
-
+<script>
 const exercises = [
   { label: 'Quiet time daily',       type: 'check' },
   { label: 'Stretch daily',          type: 'check' },
@@ -12,27 +6,38 @@ const exercises = [
   { label: '3L of water daily',      type: 'text',   placeholder: 'e.g. 2.5L' },
   { label: '30 min workout, 4x/week',type: 'text',   placeholder: 'workout type' },
   { label: '15 min walk, 3x/week',   type: 'check' },
-  { label: 'Eat whole meals',        type: 'text',   placeholder: 'what you ate' },
+  { label: 'Eat whole meals',        type: 'longtext',   placeholder: 'what you ate' },
 ]
 
-const people = ref(['Lara', 'Stephen', 'Chelsey', 'Colby'])
-
-const checks = ref(
-  Object.fromEntries(
-    people.value.map(p => [
-      p,
-      Object.fromEntries(exercises.map(e => [e.label, e.type === 'check' ? false : ''])),
-    ])
-  )
-)
-
-function addPerson() {
-  const name = prompt('Enter name:')
-  if (!name || !name.trim()) return
-  const trimmed = name.trim()
-  if (people.value.includes(trimmed)) return
-  people.value.push(trimmed)
-  checks.value[trimmed] = Object.fromEntries(exercises.map(e => [e.label, e.type === 'check' ? false : '']))
+export default {
+  data() {
+    const people = ['Lara', 'Stephen', 'Chelsey', 'Colby']
+    return {
+      exercises,
+      people,
+      checks: Object.fromEntries(
+        people.map(p => [
+          p,
+          Object.fromEntries(exercises.map(e => [e.label, e.type === 'check' ? false : ''])),
+        ])
+      ),
+    }
+  },
+  computed: {
+    today() {
+      return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    },
+  },
+  methods: {
+    addPerson() {
+      const name = prompt('Enter name:')
+      if (!name || !name.trim()) return
+      const trimmed = name.trim()
+      if (this.people.includes(trimmed)) return
+      this.people.push(trimmed)
+      this.checks[trimmed] = Object.fromEntries(exercises.map(e => [e.label, e.type === 'check' ? false : '']))
+    },
+  },
 }
 </script>
 
@@ -55,6 +60,11 @@ function addPerson() {
                 type="checkbox"
                 v-model="checks[person][exercise.label]"
               />
+              <textarea
+                v-else-if="exercise.type === 'longtext'"                
+                v-model="checks[person][exercise.label]"
+                style="min-height: 100px;"
+              ></textarea>
               <input
                 v-else
                 :type="exercise.type"
