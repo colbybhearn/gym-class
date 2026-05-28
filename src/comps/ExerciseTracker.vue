@@ -21,6 +21,10 @@ export default {
       currentPerson: localStorage.getItem('currentPerson') ?? people[0],
       exercises,
       people,
+      loading: false,
+      focusedCell: null,
+      debounceTimer: null,
+      isDirty: false,
       checks: Object.fromEntries(
         people.map(p => [
           p,
@@ -41,7 +45,34 @@ export default {
     },
   },
   methods: {
+    // Track which cell is active so we can flush it on navigation
+    onFocus(person, exercise) {
+      this.focusedCell = { person, exercise }
+    },
+    onBlur() {
+      this.focusedCell = null
+    },
+
+    // Debounced save triggered by @input
+    onInput(person, exercise) {
+      this.isDirty = true
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = setTimeout(() => {
+        this.updateActivity(person, exercise)
+      }, 1000)
+    },
+
+    // Flush any pending debounce and save the focused cell immediately
+    async flushPending() {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+      if (this.focusedCell && this.isDirty) {
+        await this.updateActivity(this.focusedCell.person, this.focusedCell.exercise)
+      }
+    },
+
     selectPerson(name) {
+      this.flushPending()
       this.currentPerson = name
       localStorage.setItem('currentPerson', name)
     },
@@ -53,13 +84,15 @@ export default {
       this.people.push(trimmed)
       this.checks[trimmed] = Object.fromEntries(exercises.map(e => [e.id, e.type === 'check' ? false : '']))
     },
-    dateNext(){
+    async dateNext(){
+      await this.flushPending()
       const d = new Date(this.date)
       d.setDate(d.getDate() + 1)
       this.date = d
       this.loadDay()
     },
-    datePrev(){
+    async datePrev(){
+      await this.flushPending()
       const d = new Date(this.date)
       d.setDate(d.getDate() - 1)
       this.date = d
@@ -67,10 +100,15 @@ export default {
     },
 
     async loadDay() {
-      const data = await getPeopleForDay(this.currentDateId)
-      for (const person of this.people) {
-        const defaults = Object.fromEntries(exercises.map(e => [e.id, e.type === 'check' ? false : '']))
-        this.checks[person] = { ...defaults, ...(data[person] ?? {}) }
+      this.loading = true
+      try {
+        const data = await getPeopleForDay(this.currentDateId)
+        for (const person of this.people) {
+          const defaults = Object.fromEntries(exercises.map(e => [e.id, e.type === 'check' ? false : '']))
+          this.checks[person] = { ...defaults, ...(data[person] ?? {}) }
+        }
+      } finally {
+        this.loading = false
       }
     },
 
@@ -78,10 +116,15 @@ export default {
       const data = { [exercise.id]: this.checks[person][exercise.id] }
       try {
         await updatePerson(this.currentDateId, person, data)
+        this.isDirty = false
       } catch (e) {
         if (e.code === 'not-found') {
-          console.log(this.checks[person])
-          await setPerson(this.currentDateId, person, this.checks[person])
+          try {
+            await setPerson(this.currentDateId, person, this.checks[person])
+            this.isDirty = false
+          } catch (e2) {
+            console.error(e2)
+          }
         } else {
           console.error(e)
         }
@@ -96,6 +139,9 @@ export default {
 
 <template>
   <div class="tracker">
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+    </div>
     <div class="date-nav">
       <button class="nav-btn" @click="datePrev">&#8592; Prev</button>
       <select id="person-picker" :value="currentPerson" @change="selectPerson($event.target.value)">
@@ -127,6 +173,9 @@ export default {
                 v-else-if="exercise.type === 'longtext'"
                 v-model="checks[person][exercise.id]"
                 style="min-height: 100px;"
+                @focus="onFocus(person, exercise)"
+                @blur="onBlur"
+                @input="onInput(person, exercise)"
                 @change="updateActivity(person, exercise)"
               ></textarea>
               <input
@@ -135,6 +184,9 @@ export default {
                 v-model="checks[person][exercise.id]"
                 :placeholder="exercise.placeholder"
                 class="text-input"
+                @focus="onFocus(person, exercise)"
+                @blur="onBlur"
+                @input="onInput(person, exercise)"
                 @change="updateActivity(person, exercise)"
               />
             </td>
@@ -147,6 +199,7 @@ export default {
 
 <style scoped>
 .tracker {
+  position: relative;
   padding: 2px;
   display: flex;
   flex-direction: column;
@@ -271,6 +324,30 @@ tr:hover td {
 
 .nav-btn:hover {
   box-shadow: var(--shadow);
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .date-nav select {
